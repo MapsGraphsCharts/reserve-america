@@ -16,10 +16,10 @@ export class Search {
         return myHeaders;
     }
 
-    public async fetchCampsiteDetails(campsiteId: string, rcp: number, gad: string, arv: string, lsy: number, displayGISMap: boolean): Promise<any> {
+    public async fetchCampsiteDetails(state : string, campsiteId: string, rcp: number, gad: string, arv: string, lsy: number, displayGISMap: boolean): Promise<any> {
         await this.auth.refreshAuthToken(); // Ensure auth token is refreshed
         const headers = this.createHeaders();
-        const url = `https://api.reserveamerica.com/jaxrs-json/products/NY/${campsiteId}?rcp=${rcp}&gad=${gad}&arv=${arv}&lsy=${lsy}&displayGISMap=${displayGISMap}`;
+        const url = `https://api.reserveamerica.com/jaxrs-json/products/${state}/${campsiteId}?rcp=${rcp}&gad=${gad}&arv=${arv}&lsy=${lsy}&displayGISMap=${displayGISMap}`;
         const requestOptions = {
             method: 'GET',
             headers: headers,

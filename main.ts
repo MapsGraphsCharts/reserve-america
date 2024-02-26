@@ -1,4 +1,4 @@
-import {Authentication} from './authentication.js'; // Adjust the path as necessary
+import { Authentication } from './authentication.js'; // Adjust the path as necessary
 import { Search } from './search.js'; // Adjust the path as necessary
 
 (async () => {
@@ -10,9 +10,9 @@ import { Search } from './search.js'; // Adjust the path as necessary
         // Initialize the Campsite class with the Authentication instance
         const campsite = new Search(auth);
 
-        // Fetch campsite details using the Campsite class
-        const campsiteDetails = await campsite.fetchCampsiteDetails("574", 1, "2024-08-02", "2024-08-08", 1, true);
-        console.log(campsiteDetails);
+        // Fetch all pages of campsite details using the Campsite class
+        const allCampsiteDetails = await campsite.fetchAvailableCampsites("NY", "574", "2024-05-20", "2024-05-20", 1, true);
+        console.log(allCampsiteDetails);
     } catch (error) {
         console.error('Error:', error);
     }

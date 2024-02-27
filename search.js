@@ -19,7 +19,12 @@ export class Search {
         myHeaders.append("A1Data", this.auth.getA1Data());
         return myHeaders;
     }
-    fetchCampsiteDetails(state, campsiteId, rcp, gad, arv, lsy, displayGISMap) {
+    isCampsiteDetailsResponse(data) {
+        // Validate the data based on the structure of CampsiteDetailsResponse
+        // This is a basic example, you should add more checks based on your data structure
+        return data && typeof data.totalRecords === 'number' && Array.isArray(data.records);
+    }
+    fetchSingleCampsitePage(state, campsiteId, rcp, gad, arv, lsy, displayGISMap) {
         return __awaiter(this, void 0, void 0, function* () {
             yield this.auth.refreshAuthToken(); // Ensure auth token is refreshed
             const headers = this.createHeaders();
@@ -35,6 +40,9 @@ export class Search {
                     throw new Error(`Failed to fetch campsite details: ${response.status} ${response.statusText}`);
                 }
                 const result = yield response.json();
+                if (!this.isCampsiteDetailsResponse(result)) {
+                    throw new Error('Invalid response format');
+                }
                 return result;
             }
             catch (error) {
@@ -51,28 +59,36 @@ export class Search {
             }
         });
     }
-    fetchAllCampsiteDetails(state, campsiteId, gad, arv, lsy, displayGISMap) {
+    fetchAllCampsiteDetails(campsiteMap, gad, arv, lsy, displayGISMap, concurrencyLimit = 10) {
         return __awaiter(this, void 0, void 0, function* () {
-            let currentPage = 1;
-            const allRecords = [];
-            // Initial fetch to get total pages
-            const initialResponse = yield this.fetchCampsiteDetails(state, campsiteId, currentPage, gad, arv, lsy, displayGISMap);
-            allRecords.push(...initialResponse.records);
-            let totalPages = initialResponse.totalPages;
-            // Fetch remaining pages
-            while (currentPage < totalPages) {
-                currentPage++;
-                const response = yield this.fetchCampsiteDetails(state, campsiteId, currentPage, gad, arv, lsy, displayGISMap);
-                allRecords.push(...response.records);
+            let allRecords = [];
+            for (const [state, campgrounds] of Object.entries(campsiteMap)) {
+                for (const campground of campgrounds) {
+                    const campsiteId = campground.campgroundId; // Extract the campgroundId from the object
+                    const initialResponse = yield this.fetchSingleCampsitePage(state, campsiteId, 0, gad, arv, lsy, displayGISMap); // Start from page 1
+                    allRecords = [...allRecords, ...initialResponse.records];
+                    const totalPages = initialResponse.totalPages;
+                    const pagesToFetch = Array.from({ length: totalPages }, (_, i) => i + 1);
+                    // Process pages in batches
+                    for (let i = 0; i < pagesToFetch.length; i += concurrencyLimit) {
+                        const batch = pagesToFetch.slice(i, i + concurrencyLimit);
+                        const fetchBatch = (batch) => __awaiter(this, void 0, void 0, function* () {
+                            const promises = batch.map(page => this.fetchSingleCampsitePage(state, campsiteId, page, gad, arv, lsy, displayGISMap));
+                            const results = yield Promise.all(promises);
+                            results.forEach(result => allRecords.push(...result.records));
+                        });
+                        yield fetchBatch(batch);
+                    }
+                }
             }
             return allRecords;
         });
     }
-    fetchAvailableCampsites(state, campsiteId, gad, arv, lsy, displayGISMap) {
+    fetchAvailableCampsites(campsiteMap, gad, arv, lsy, displayGISMap) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 // Fetch all campsite details
-                const allCampsites = yield this.fetchAllCampsiteDetails(state, campsiteId, gad, arv, lsy, displayGISMap);
+                const allCampsites = yield this.fetchAllCampsiteDetails(campsiteMap, gad, arv, lsy, displayGISMap);
                 // Filter for available campsites
                 const availableCampsites = allCampsites.filter(campsite => campsite.bookingStatus === "AVAILABLE");
                 return availableCampsites;

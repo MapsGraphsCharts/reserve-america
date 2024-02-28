@@ -71,7 +71,18 @@ export class Search {
     public async fetchSingleCampsitePage(state: string, campsiteId: string, rcp: number, gad: string, arv: string, lsy: number, displayGISMap: boolean): Promise<CampsiteDetailsResponse> {
         await this.auth.refreshAuthToken(); // Ensure auth token is refreshed
         const headers = this.createHeaders();
-        const url = `https://api.reserveamerica.com/jaxrs-json/products/${state}/${campsiteId}?rcp=${rcp}&gad=${gad}&arv=${arv}&lsy=${lsy}&displayGISMap=${displayGISMap}`;
+
+        // Construct the URL using URL and URLSearchParams
+        const url = new URL(`https://api.reserveamerica.com/jaxrs-json/products/${state}/${campsiteId}`);
+        const params = new URLSearchParams({
+            rcp: rcp.toString(),
+            gad,
+            arv,
+            lsy: lsy.toString(),
+            displayGISMap: displayGISMap.toString()
+        });
+        url.search = params.toString();
+
         const requestOptions: RequestInit = {
             method: 'GET',
             headers: headers,
@@ -79,19 +90,25 @@ export class Search {
         };
 
         try {
-            const response = await fetch(url, requestOptions);
+            const response = await fetch(url.toString(), requestOptions);
             if (!response.ok) {
-                throw new Error(`Failed to fetch campsite details: ${response.status} ${response.statusText}`);
+                // Handle specific status codes
+                if (response.status === 404) {
+                    throw new Error(`Campsite not found: ${response.status} ${response.statusText}`);
+                } else if (response.status >= 500) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                } else {
+                    throw new Error(`Failed to fetch campsite details: ${response.status} ${response.statusText}`);
+                }
             }
             const result = await response.json();
             if (!this.isCampsiteDetailsResponse(result)) {
                 throw new Error('Invalid response format');
             }
-            return result as CampsiteDetailsResponse;
+            return result;
         } catch (error) {
-            if (error instanceof SyntaxError) {
-                console.error('Error parsing JSON:', error);
-            } else if (error instanceof TypeError) {
+            // Handle network errors separately from API errors
+            if (error instanceof TypeError) {
                 console.error('Network error:', error);
             } else {
                 console.error('Error fetching campsite details:', error);
@@ -100,7 +117,7 @@ export class Search {
         }
     }
 
-    public async fetchAllCampsiteDetails(campsiteMap: StateCampgroundMap, gad: string, arv: string, lsy: number, displayGISMap: boolean, concurrencyLimit: number = 10): Promise<CampsiteRecord[]> {
+    public async fetchAllCampsiteDetails(campsiteMap: StateCampgroundMap, gad: string, arv: number, lsy: number, displayGISMap: boolean, concurrencyLimit: number = 10): Promise<CampsiteDetailsResponse[]> {
         let allRecords: CampsiteRecord[] = [];
 
         for (const [state, campgrounds] of Object.entries(campsiteMap)) {
@@ -128,16 +145,35 @@ export class Search {
         return allRecords;
     }
 
+    private addMonths(date: Date, months: number): Date {
+        const result = new Date(date);
+        result.setMonth(result.getMonth() + months);
+        return result;
+    }
+
+    private addDays(date: Date, days: number): Date {
+        const result = new Date(date);
+        result.setDate(result.getDate() + days);
+        return result;
+    }
+
+    private formatDate(date: Date): string {
+        // Assuming you want YYYY-MM-DD format
+        return date.toISOString().split('T')[0];
+    }
+
+
+
     public async fetchExtendedAvailability(campgroundMap: StateCampgroundMap, startDate: string, durationMonths: number, stayLength: number, displayGISMap: boolean): Promise<ExtendedAvailabilityResult[]> {
-        const endDate = addMonths(new Date(startDate), durationMonths);
+        const endDate = this.addMonths(new Date(startDate), durationMonths);
         let currentDate = new Date(startDate);
         let results: ExtendedAvailabilityResult[] = [];
 
         while (currentDate < endDate) {
-            const formattedDate = formatDate(currentDate); // Implement this function to format dates as needed
-            const blockResults = await this.fetchAvailableCampsites(campgroundMap, formattedDate, formattedDate, stayLength, displayGISMap);
+            const formattedDate = this.formatDate(currentDate);
+            const blockResults = await this.fetchAllCampsiteDetails(campgroundMap, formattedDate, formattedDate, stayLength, displayGISMap);
             results = [...results, ...blockResults];
-            currentDate = addDays(currentDate, 14); // Move to the next 14-day block
+            currentDate = this.addDays(currentDate, 14); // Move to the next 14-day block
         }
 
         return results;

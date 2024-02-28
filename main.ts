@@ -9,17 +9,19 @@ import { stateCampgroundMap } from './campgroundMap.js'; // Import the stateCamp
 
         const campsiteSearch = new Search(auth);
 
+        const specificCampgroundId = '574'; // Replace with your specific campgroundId
+
         const riCampgroundMap: StateCampgroundMap = {
-            'RI': stateCampgroundMap['RI']
+            'NY': stateCampgroundMap['NY'].filter(campground => campground.campgroundId === specificCampgroundId)
         };
 
-        // Assuming fetchExtendedAvailability is a method of Search class
-        // Adjust parameters as needed, for example: durationMonths and stayLength
-        const durationMonths = 6; // Example: looking for availability over the next 6 months
-        const stayLength = 5; // Example: interested in stays of 5 nights
-        const displayGISMap = true; // Based on your preference or requirement
+        // Adjust the parameters as necessary for your test
+        const durationMonths = 1; // For example, to fetch availability for the next 6 months
+        const stayLength = 5; // Assuming a stay length of 5 nights
+        const displayGISMap = true; // Assuming you want to display GIS Map information
 
-        const extendedAvailabilityResults = await campsiteSearch.fetchExtendedAvailability(riCampgroundMap, "2024-05-20", durationMonths, stayLength, displayGISMap);
+        // Fetch extended availability
+        const extendedAvailabilityResults = await campsiteSearch.fetchAllCampsiteDetails(riCampgroundMap, "2024-05-20", stayLength, displayGISMap, true, 10);
         console.log(extendedAvailabilityResults);
     } catch (error) {
         console.error('Error:', error);

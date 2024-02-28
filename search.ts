@@ -128,6 +128,36 @@ export class Search {
         return allRecords;
     }
 
+    public async fetchExtendedAvailability(campgroundMap: StateCampgroundMap, startDate: string, durationMonths: number, stayLength: number, displayGISMap: boolean): Promise<ExtendedAvailabilityResult[]> {
+        const endDate = addMonths(new Date(startDate), durationMonths);
+        let currentDate = new Date(startDate);
+        let results: ExtendedAvailabilityResult[] = [];
+
+        while (currentDate < endDate) {
+            const formattedDate = formatDate(currentDate); // Implement this function to format dates as needed
+            const blockResults = await this.fetchAvailableCampsites(campgroundMap, formattedDate, formattedDate, stayLength, displayGISMap);
+            results = [...results, ...blockResults];
+            currentDate = addDays(currentDate, 14); // Move to the next 14-day block
+        }
+
+        return results;
+    }
+
+    public async calculateBookingRate(campgroundId: string, durationMonths: number): Promise<number> {
+        const availability = await fetchExtendedAvailability({campgroundId}, "2024-05-20", durationMonths, 5, true);
+        let reservedDays = 0;
+        let totalDays = 0;
+
+        availability.forEach(day => {
+            totalDays++;
+            if (day.status === "RESERVED") {
+                reservedDays++;
+            }
+        });
+
+        return (reservedDays / totalDays) * 100; // Return the booking rate as a percentage
+    }
+
     public async fetchAvailableCampsites(campsiteMap: StateCampgroundMap, gad: string, arv: string, lsy: number, displayGISMap: boolean): Promise<CampsiteRecord[]> {
         try {
             // Fetch all campsite details
@@ -142,4 +172,7 @@ export class Search {
             throw error;
         }
     }
+
+
+
 }

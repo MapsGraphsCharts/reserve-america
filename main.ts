@@ -13,12 +13,15 @@ import { stateCampgroundMap } from './campgroundMap.js'; // Import the stateCamp
             'RI': stateCampgroundMap['RI']
         };
 
+        // Assuming fetchExtendedAvailability is a method of Search class
+        // Adjust parameters as needed, for example: durationMonths and stayLength
+        const durationMonths = 6; // Example: looking for availability over the next 6 months
+        const stayLength = 5; // Example: interested in stays of 5 nights
+        const displayGISMap = true; // Based on your preference or requirement
 
-        // Fetch all pages of campsite details using the updated method
-        const allCampsiteDetails = await campsiteSearch.fetchAvailableCampsites(riCampgroundMap, "2024-05-20", "2024-05-20", 5, true ); // Adjust concurrencyLimit as needed
-        console.log(allCampsiteDetails);
+        const extendedAvailabilityResults = await campsiteSearch.fetchExtendedAvailability(riCampgroundMap, "2024-05-20", durationMonths, stayLength, displayGISMap);
+        console.log(extendedAvailabilityResults);
     } catch (error) {
         console.error('Error:', error);
     }
 })();
-
